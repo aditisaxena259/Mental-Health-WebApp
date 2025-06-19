@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+// import {  toast } from 'react-toastify';
 import {
     LayoutDashboard,
     Users,
@@ -181,6 +182,25 @@ export default function AdminDashboard() {
         return <Icon className="h-4 w-4" />;
     };
 
+    const logout = async () => {
+        try {
+          const response = await fetch('http://localhost:8080/api/logout', {
+            method: 'POST', // Ensure the backend allows POST for logout
+            credentials: 'include', // Important! Allows cookies to be sent with the request
+          });
+      
+          if (response.ok) {
+            toast.success('Logged out successfully!');
+            router.push('/login'); // Redirect user to login page
+          } else {
+            toast.error('Logout failed. Please try again.');
+          }
+        } catch (error) {
+          toast.error('Something went wrong. Please try again later.');
+        }
+      };      
+    
+
     return (
         <div className="flex min-h-screen bg-gray-50">
             {/* Sidebar - desktop */}
@@ -237,8 +257,13 @@ export default function AdminDashboard() {
                                 <span>Profile</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem>
-                                <LogOut className="mr-2 h-4 w-4" />
-                                <span>Log out</span>
+                                
+                                <button
+                                    onClick={logout}
+                                    className="bg-red-500 text-white px-4 py-2 rounded-lg shadow-md hover:bg-red-600 transition-all"
+                                >
+                                    Logout
+                                </button>
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>

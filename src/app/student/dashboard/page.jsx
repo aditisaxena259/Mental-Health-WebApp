@@ -5,6 +5,7 @@ import React from 'react';
 import {useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import axios from 'axios';
 import {
     Plus,
     Clock,
@@ -119,7 +120,8 @@ export default function StudentDashboard() {
     const [newComplaint, setNewComplaint] = useState({
         title: '',
         category: '',
-        description: ''
+        description: '',
+        // attachment: '',
     });
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -137,9 +139,19 @@ export default function StudentDashboard() {
 
     const handleNewComplaintSubmit = (e) => {
         e.preventDefault();
-        // In a real app, you would submit this to your API
         console.log('New complaint submitted:', newComplaint);
-        alert('Complaint submitted successfully!');
+        const tokenID = localStorage.getItem('token');
+        const userData = {
+            title: '',
+            category:'',
+            description:'',
+            // attachment:'',
+        }
+        axios.post('http://localhost:8080/api/complaints',userData,{
+            headers: {
+                'authorization': tokenID
+            }
+    })
         setNewComplaintOpen(false);
         setNewComplaint({ title: '', category: '', description: '' });
     };
@@ -381,7 +393,12 @@ export default function StudentDashboard() {
                                             </div>
                                             <div className="space-y-2">
                                                 <Label htmlFor="attachments">Attachments (Optional)</Label>
-                                                <Input id="attachments" type="file" />
+                                                <Input 
+                                                    id="attachments" 
+                                                    type="file"
+                                                    // value={newComplaint.attachment}
+                                                    // onChange={(e) => setNewComplaint({ ...newComplaint, attachment: e.target.value})}
+                                                />
                                                 <p className="text-xs text-gray-500">Upload images or documents related to your complaint (max 5MB)</p>
                                             </div>
                                         </div>
@@ -389,7 +406,7 @@ export default function StudentDashboard() {
                                             <Button type="button" variant="outline" onClick={() => setNewComplaintOpen(false)}>
                                                 Cancel
                                             </Button>
-                                            <Button type="submit">Submit Complaint</Button>
+                                            <Button type="submit" onClick={()=>handleNewComplaintSubmit()}>Submit Complaint</Button>
                                         </DialogFooter>
                                     </form>
                                 </DialogContent>

@@ -28,25 +28,60 @@ export default function LoginPage() {
     }
   }, [searchParams]);
 
-  const handleSubmit = async (e : React.FormEvent<HTMLFormElement>) => {
+  // const handleSubmit = async (e : React.FormEvent<HTMLFormElement>) => {
+  //   e.preventDefault();
+  //   setIsLoading(true);
+    
+  //   // Simulate login API call
+  //   setTimeout(() => {
+  //     setIsLoading(false);
+      
+  //     if (email && password) {
+  //       // Success login simulation
+  //       toast(`Login successful Welcome back, ${role === 'admin' ? 'Warden' : 'Student'}!`);
+        
+  //       // Redirect based on role
+  //       router.push(role === 'admin' ? '/admin/dashboard' : '/student/dashboard');
+  //     } else {
+  //       toast( "Please check your credentials and try again.");
+  //     }
+  //   }, 1500);
+  // };
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Simulate login API call
-    setTimeout(() => {
-      setIsLoading(false);
-      
-      if (email && password) {
-        // Success login simulation
-        toast(`Login successful Welcome back, ${role === 'admin' ? 'Warden' : 'Student'}!`);
-        
-        // Redirect based on role
-        router.push(role === 'admin' ? '/admin/dashboard' : '/student/dashboard');
+  
+    try {
+      const response = await fetch("http://localhost:8080/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+  
+      const data = await response.json();
+  
+      if (response.ok) {
+        const { token, role } = data; // Extract token and role
+  
+        toast(`Login successful! Welcome back, ${role === "admin" ? "Warden" : "Student"}!`);
+  
+        if (token) {
+          localStorage.setItem("token", token);
+          localStorage.setItem("role", role); // Store role
+        }
+  
+        router.push(role === "admin" ? "/landing" : "/student/dashboard");
       } else {
-        toast( "Please check your credentials and try again.");
+        toast.error(data.error || "Invalid credentials. Please try again.");
       }
-    }, 1500);
-  };
+    } catch (error) {
+      toast.error("Something went wrong. Please try again later.");
+    } finally {
+      setIsLoading(false);
+    }
+  };  
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-indigo-50 to-white p-4">

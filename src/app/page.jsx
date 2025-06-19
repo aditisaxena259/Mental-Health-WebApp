@@ -39,7 +39,7 @@ export default function LandingPage() {
           </div>
           <div className="relative h-[400px] rounded-lg overflow-hidden shadow-xl">
             <Image 
-              src="/hostel-illustration.svg" 
+              src="/images/hostel.webp" 
               alt="Hostel illustration" 
               fill
               className="object-cover"

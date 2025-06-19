@@ -39,7 +39,7 @@ export default function WardenDashboard() {
   }, []);
 
   const handleCardClick = (route) => {
-    router.push(`/dashboard/${route}`);
+    router.push(`/${route}_dashboard`);
   };
 
   const cardVariants = {
@@ -253,7 +253,7 @@ export default function WardenDashboard() {
             >
               <Card 
                 className="cursor-pointer h-full border border-slate-200 hover:border-purple-300 transition-all duration-300 overflow-hidden"
-                onClick={() => handleCardClick("complaints")}
+                onClick={() => handleCardClick("complaint")}
               >
                 <div className="h-2 bg-gradient-to-r from-purple-500 to-purple-600"></div>
                 <CardHeader className="pb-2">
