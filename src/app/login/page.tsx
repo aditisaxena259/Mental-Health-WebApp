@@ -1,29 +1,39 @@
 // app/login/page.js
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 // import Image from 'next/image';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 //import { Toaster } from '@/components/ui/sonner';
 import { toast } from "sonner";
+import { api } from "@/lib/api";
+import { setAuth } from "@/lib/auth";
+import type { LoginResponse } from "@/types/api";
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
-  const [role, setRole] = useState('student');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+
+  const [role, setRole] = useState("student");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    const roleParam = searchParams.get('role');
-    if (roleParam && (roleParam === 'admin' || roleParam === 'student')) {
+    const roleParam = searchParams.get("role");
+    if (roleParam && (roleParam === "admin" || roleParam === "student")) {
       setRole(roleParam);
     }
   }, [searchParams]);
@@ -31,15 +41,15 @@ export default function LoginPage() {
   // const handleSubmit = async (e : React.FormEvent<HTMLFormElement>) => {
   //   e.preventDefault();
   //   setIsLoading(true);
-    
+
   //   // Simulate login API call
   //   setTimeout(() => {
   //     setIsLoading(false);
-      
+
   //     if (email && password) {
   //       // Success login simulation
   //       toast(`Login successful Welcome back, ${role === 'admin' ? 'Warden' : 'Student'}!`);
-        
+
   //       // Redirect based on role
   //       router.push(role === 'admin' ? '/admin/dashboard' : '/student/dashboard');
   //     } else {
@@ -50,38 +60,35 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
-  
+
     try {
-      const response = await fetch("http://localhost:8080/api/login", {
+      const data = await api<LoginResponse>("/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({ email, password }),
       });
-  
-      const data = await response.json();
-  
-      if (response.ok) {
-        const { token, role } = data; // Extract token and role
-  
-        toast(`Login successful! Welcome back, ${role === "admin" ? "Warden" : "Student"}!`);
-  
-        if (token) {
-          localStorage.setItem("token", token);
-          localStorage.setItem("role", role); // Store role
-        }
-  
-        router.push(role === "admin" ? "/landing" : "/student/dashboard");
-      } else {
-        toast.error(data.error || "Invalid credentials. Please try again.");
+
+      const { token, role } = data;
+      toast(
+        `Login successful! Welcome back, ${
+          role === "admin" ? "Warden" : "Student"
+        }!`
+      );
+
+      if (token) {
+        setAuth(token, role);
       }
+
+      router.push(role === "admin" ? "/landing" : "/student/dashboard");
     } catch (error) {
-      toast.error("Something went wrong. Please try again later.");
+      const msg =
+        error instanceof Error
+          ? error.message
+          : "Something went wrong. Please try again later.";
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }
-  };  
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-indigo-50 to-white p-4">
@@ -93,12 +100,14 @@ export default function LoginPage() {
                 <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center">
                   <span className="text-white font-bold text-sm">H</span>
                 </div>
-                <h1 className="text-xl font-bold text-indigo-900">HostelCare</h1>
+                <h1 className="text-xl font-bold text-indigo-900">
+                  HostelCare
+                </h1>
               </div>
             </Link>
           </div>
           <CardTitle className="text-2xl font-bold text-center">
-            {role === 'admin' ? 'Warden Login' : 'Student Login'}
+            {role === "admin" ? "Warden Login" : "Student Login"}
           </CardTitle>
           <CardDescription className="text-center">
             Enter your credentials to access the portal
@@ -108,10 +117,10 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input 
-                id="email" 
-                type="email" 
-                placeholder="your.email@university.edu" 
+              <Input
+                id="email"
+                type="email"
+                placeholder="your.email@university.edu"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -120,21 +129,24 @@ export default function LoginPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Password</Label>
-                <Link href="/forgot-password" className="text-sm text-indigo-600 hover:underline">
+                <Link
+                  href="/forgot-password"
+                  className="text-sm text-indigo-600 hover:underline"
+                >
                   Forgot password?
                 </Link>
               </div>
-              <Input 
-                id="password" 
-                type="password" 
+              <Input
+                id="password"
+                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
             </div>
-            <Button 
-              type="submit" 
-              className="w-full bg-indigo-600 hover:bg-indigo-700" 
+            <Button
+              type="submit"
+              className="w-full bg-indigo-600 hover:bg-indigo-700"
               disabled={isLoading}
             >
               {isLoading ? "Logging in..." : "Login"}
@@ -143,16 +155,24 @@ export default function LoginPage() {
         </CardContent>
         <CardFooter className="flex justify-center">
           <div className="text-sm text-gray-600">
-            Switch to{' '}
-            <Link 
-              href={`/login?role=${role === 'admin' ? 'student' : 'admin'}`} 
+            Switch to{" "}
+            <Link
+              href={`/login?role=${role === "admin" ? "student" : "admin"}`}
               className="text-indigo-600 hover:underline"
             >
-              {role === 'admin' ? 'Student' : 'Warden'} Login
+              {role === "admin" ? "Student" : "Warden"} Login
             </Link>
           </div>
         </CardFooter>
       </Card>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
   );
 }
