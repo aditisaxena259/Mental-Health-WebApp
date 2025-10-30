@@ -17,6 +17,8 @@ import {
   Calendar,
   ThumbsUp,
   ThumbsDown,
+  FileText,
+  ImageIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -39,12 +41,14 @@ import { api } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { toast } from "sonner";
 import RequireAuth from "@/components/guard/RequireAuth";
+import { PriorityBadge } from "@/components/shared/StatusBadges";
 
 export default function StudentComplaintDetail({ params }) {
   const router = useRouter();
   const unwrappedParams = use(params);
   const complaintId = unwrappedParams.id;
   const [newMessage, setNewMessage] = useState("");
+  const [selectedFile, setSelectedFile] = useState(null);
   const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
   const [satisfaction, setSatisfaction] = useState(null);
   const [feedbackComment, setFeedbackComment] = useState("");
@@ -92,24 +96,101 @@ export default function StudentComplaintDetail({ params }) {
       });
   }, [complaintId, token]);
 
-  const handleSendMessage = () => {
-    if (!newMessage.trim()) return;
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setSelectedFile(null);
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast.error("File size must be less than 5MB");
+      e.target.value = "";
+      return;
+    }
+
+    // Validate file type - PDF or images
+    const allowedTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "application/pdf",
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Only JPG, PNG, and PDF files are allowed");
+      e.target.value = "";
+      return;
+    }
+
+    setSelectedFile(file);
+  };
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() && !selectedFile) {
+      toast.error("Please enter a message or attach a file");
+      return;
+    }
 
     if (!token) return;
-    api(
-      `/complaints/${complaintId}/timeline`,
-      {
-        method: "POST",
-        body: JSON.stringify({ message: newMessage }),
-      },
-      token
-    )
-      .then((entry) => {
+
+    try {
+      // Send the text message
+      if (newMessage.trim()) {
+        const entry = await api(
+          `/complaints/${complaintId}/timeline`,
+          {
+            method: "POST",
+            body: JSON.stringify({ message: newMessage }),
+          },
+          token
+        );
         setTimeline((prev) => [...prev, entry]);
-        setNewMessage("");
+      }
+
+      // Handle file attachment if present
+      if (selectedFile) {
+        // Convert file to base64 for storage
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64Data = reader.result;
+          const meta = [];
+          if (selectedFile.type) meta.push(`type=${selectedFile.type}`);
+          if (selectedFile.size) meta.push(`size=${selectedFile.size}B`);
+          const suffix = meta.length ? ` [${meta.join(", ")}]` : "";
+
+          try {
+            const fileEntry = await api(
+              `/complaints/${complaintId}/timeline`,
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  message: `📎 Attachment: ${selectedFile.name}${suffix}|||${base64Data}`,
+                }),
+              },
+              token
+            );
+            setTimeline((prev) => [...prev, fileEntry]);
+            toast.success("File attached successfully");
+          } catch (err) {
+            toast.error(err?.message || "Failed to attach file");
+          }
+        };
+        reader.readAsDataURL(selectedFile);
+      }
+
+      setNewMessage("");
+      setSelectedFile(null);
+      const input = document.getElementById("student-attach-input");
+      if (input) input.value = "";
+
+      if (!selectedFile) {
         toast.success("Message sent");
-      })
-      .catch((e) => toast.error(e?.message || "Failed to send message"));
+      }
+    } catch (e) {
+      toast.error(e?.message || "Failed to send message");
+    }
   };
 
   const handleSubmitFeedback = () => {
@@ -216,12 +297,6 @@ export default function StudentComplaintDetail({ params }) {
         current: status === "inprogress",
       },
       {
-        id: "assigned",
-        label: "Assigned",
-        completed: status === "resolved",
-        current: false,
-      },
-      {
         id: "resolved",
         label: "Resolved",
         completed: status === "resolved",
@@ -232,78 +307,119 @@ export default function StudentComplaintDetail({ params }) {
 
   return (
     <RequireAuth roles={["student"]}>
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-950 dark:via-gray-900 dark:to-indigo-950">
+        <div className="max-w-5xl mx-auto px-4 py-6">
           {/* Back button and complaint title */}
           <div className="mb-6">
             <Button
               variant="ghost"
-              className="mb-2 pl-0 hover:bg-transparent hover:text-indigo-700"
-              onClick={() => router.push("/student/dashboard")}
+              className="mb-4 pl-0 hover:bg-transparent text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => router.back()}
             >
               <ChevronLeft className="h-4 w-4 mr-1" />
               Back to complaints
             </Button>
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+              <div className="flex-1">
+                <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                   {complaint?.title || "Loading..."}
                 </h1>
-                <div className="flex flex-wrap items-center gap-2 mt-1 text-sm text-gray-600">
-                  <span>Complaint #{complaint?.id || complaintId}</span>
+                <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                  <span className="font-medium">
+                    ID: {complaint?.id || complaintId}
+                  </span>
                   <span>•</span>
-                  <span>
-                    Reported on{" "}
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
                     {complaint?.date ? formatDate(complaint.date) : "..."}
                   </span>
+                  {complaint?.priority ? (
+                    <>
+                      <span>•</span>
+                      <PriorityBadge priority={complaint.priority} />
+                    </>
+                  ) : null}
                 </div>
               </div>
-              <div>{getStatusBadge(complaint?.status || "open")}</div>
+              <div className="flex items-center gap-2">
+                {getStatusBadge(complaint?.status || "open")}
+              </div>
             </div>
           </div>
 
           {/* Progress tracker */}
-          <Card className="mb-6">
+          <Card className="mb-6 border-2 backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 shadow-xl rounded-2xl overflow-hidden">
             <CardContent className="p-6">
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-sm font-medium">Complaint Progress</h3>
-                  <span className="text-sm text-gray-600">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-indigo-600" />
+                    Progress Tracker
+                  </h3>
+                  <span className="text-sm font-medium text-indigo-600 bg-indigo-50 dark:bg-indigo-950 px-3 py-1 rounded-full">
                     {Math.round(calculateProgress())}% Complete
                   </span>
                 </div>
-                <Progress value={calculateProgress()} className="h-2" />
-                <div className="grid grid-cols-4 gap-2 text-center text-sm">
-                  {getProgressSteps().map((step) => (
-                    <div key={step.id} className="space-y-1">
+                <Progress
+                  value={calculateProgress()}
+                  className="h-3 bg-gray-200 dark:bg-gray-800"
+                />
+                <div className="grid grid-cols-3 gap-4 mt-6">
+                  {getProgressSteps().map((step, index) => (
+                    <div key={step.id} className="relative">
                       <div
-                        className={`h-6 w-6 rounded-full mx-auto flex items-center justify-center ${
+                        className={`text-center space-y-2 p-3 rounded-xl transition-all ${
                           step.completed
-                            ? "bg-green-100"
+                            ? "bg-green-50 dark:bg-green-950"
                             : step.current
-                            ? "bg-blue-100"
-                            : "bg-gray-100"
+                            ? "bg-blue-50 dark:bg-blue-950 ring-2 ring-blue-200 dark:ring-blue-800"
+                            : "bg-gray-50 dark:bg-gray-800"
                         }`}
                       >
-                        {step.completed ? (
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                        ) : step.current ? (
-                          <Clock className="h-4 w-4 text-blue-600" />
-                        ) : (
-                          <div className="h-2 w-2 rounded-full bg-gray-400"></div>
-                        )}
+                        <div className="flex justify-center">
+                          <div
+                            className={`h-10 w-10 rounded-full flex items-center justify-center transition-all ${
+                              step.completed
+                                ? "bg-green-500 shadow-lg shadow-green-500/50"
+                                : step.current
+                                ? "bg-blue-500 shadow-lg shadow-blue-500/50 animate-pulse"
+                                : "bg-gray-300 dark:bg-gray-600"
+                            }`}
+                          >
+                            {step.completed ? (
+                              <CheckCircle className="h-5 w-5 text-white" />
+                            ) : step.current ? (
+                              <Clock className="h-5 w-5 text-white" />
+                            ) : (
+                              <div className="h-3 w-3 rounded-full bg-white"></div>
+                            )}
+                          </div>
+                        </div>
+                        <p
+                          className={`text-xs font-medium ${
+                            step.completed
+                              ? "text-green-700 dark:text-green-300"
+                              : step.current
+                              ? "text-blue-700 dark:text-blue-300"
+                              : "text-gray-500 dark:text-gray-400"
+                          }`}
+                        >
+                          {step.label}
+                        </p>
                       </div>
-                      <p
-                        className={`text-xs ${
-                          step.completed
-                            ? "text-green-700 font-medium"
-                            : step.current
-                            ? "text-blue-700 font-medium"
-                            : "text-gray-500"
-                        }`}
-                      >
-                        {step.label}
-                      </p>
+                      {index < getProgressSteps().length - 1 && (
+                        <div
+                          className={`hidden md:block absolute top-7 left-full w-full h-0.5 -translate-y-1/2 ${
+                            step.completed
+                              ? "bg-green-500"
+                              : "bg-gray-300 dark:bg-gray-600"
+                          }`}
+                          style={{
+                            width: "calc(100% - 2rem)",
+                            left: "calc(50% + 1rem)",
+                          }}
+                        ></div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -312,38 +428,45 @@ export default function StudentComplaintDetail({ params }) {
           </Card>
 
           {/* Complaint details */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>Complaint Details</CardTitle>
+          <Card className="mb-6 border-2 backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 shadow-xl rounded-2xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/50 dark:to-purple-950/50 border-b">
+              <CardTitle className="flex items-center gap-2 text-foreground">
+                <AlertCircle className="h-5 w-5 text-indigo-600" />
+                Complaint Details
+              </CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-gray-700 whitespace-pre-line mb-6">
+            <CardContent className="p-6">
+              <p className="text-foreground whitespace-pre-line leading-relaxed mb-6 text-base">
                 {complaint?.description || "Loading complaint details..."}
               </p>
 
               {complaint?.attachments && complaint.attachments.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-900 mb-2">
-                    Attachments
+                <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                  <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                    <Paperclip className="h-4 w-4 text-indigo-600" />
+                    Attachments ({complaint.attachments.length})
                   </h3>
                   <div className="space-y-2">
                     {complaint.attachments.map((attachment, index) => (
                       <div
                         key={attachment.id || `attachment-${index}`}
-                        className="flex items-center gap-2 p-2 rounded-md border border-gray-200 bg-gray-50"
+                        className="flex items-center gap-3 p-3 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-indigo-300 dark:hover:border-indigo-700 transition-all hover:shadow-md"
                       >
-                        <Paperclip className="h-4 w-4 text-gray-500" />
+                        <div className="h-10 w-10 rounded-lg bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center flex-shrink-0">
+                          <Paperclip className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                        </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">
+                          <p className="text-sm font-medium text-foreground truncate">
                             {attachment.name}
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-muted-foreground">
                             {attachment.size}
                           </p>
                         </div>
                         <Button
                           variant="outline"
                           size="sm"
+                          className="border-indigo-200 hover:bg-indigo-50 dark:border-indigo-800 dark:hover:bg-indigo-950"
                           onClick={() => {
                             if (attachment?.url) {
                               window.open(attachment.url, "_blank");
@@ -363,138 +486,402 @@ export default function StudentComplaintDetail({ params }) {
           </Card>
 
           {/* Timeline and responses */}
-          <Card className="mb-6">
-            <Tabs defaultValue="timeline">
-              <CardHeader className="pb-0">
-                <div className="flex items-center justify-between">
-                  <CardTitle>Communication History</CardTitle>
-                  <TabsList>
-                    <TabsTrigger value="timeline">Timeline</TabsTrigger>
-                    <TabsTrigger value="respond">Respond</TabsTrigger>
+          <Card className="mb-6 border-2 backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 shadow-xl rounded-2xl overflow-hidden">
+            <Tabs defaultValue="timeline" className="w-full">
+              <CardHeader className="pb-3 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/50 dark:to-purple-950/50 border-b">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <CardTitle className="flex items-center gap-2 text-foreground">
+                    <MessageSquare className="h-5 w-5 text-indigo-600" />
+                    Communication History
+                  </CardTitle>
+                  <TabsList className="bg-white/50 dark:bg-gray-800/50 border">
+                    <TabsTrigger
+                      value="timeline"
+                      className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white"
+                    >
+                      <Clock className="h-4 w-4 mr-2" />
+                      Timeline
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="respond"
+                      className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white"
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      Respond
+                    </TabsTrigger>
                   </TabsList>
                 </div>
               </CardHeader>
-              <CardContent>
-                <TabsContent value="timeline" className="mt-4 space-y-6">
-                  {timeline.map((item) => (
-                    <div
-                      key={item.id}
-                      className="relative pl-6 pb-6 before:absolute before:left-2 before:top-2 before:h-full before:w-[1px] before:bg-gray-200 last:before:h-0"
-                    >
-                      <div className="absolute left-0 top-1 h-4 w-4 rounded-full bg-indigo-100 flex items-center justify-center">
-                        {item.type === "status-change" ? (
-                          <Clock className="h-2 w-2 text-indigo-700" />
-                        ) : (
-                          <MessageSquare className="h-2 w-2 text-indigo-700" />
-                        )}
-                      </div>
-
-                      {item.type === "status-change" ? (
-                        <div>
-                          <p className="text-sm text-gray-600">
-                            Status changed to{" "}
-                            <span className="font-medium">{item.status}</span>
-                            {item.user !== "system" && item?.user?.name && (
-                              <> by {item.user.name}</>
-                            )}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {item.timestamp ? formatDate(item.timestamp) : ""}
-                          </p>
+              <CardContent className="p-6">
+                <TabsContent value="timeline" className="mt-0 space-y-6">
+                  {timeline.length === 0 ? (
+                    <div className="text-center py-12">
+                      <MessageSquare className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                      <p className="text-muted-foreground">No updates yet</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Updates will appear here as your complaint progresses
+                      </p>
+                    </div>
+                  ) : (
+                    [...timeline].reverse().map((item, idx) => (
+                      <div
+                        key={item.id}
+                        className="relative pl-8 pb-6 before:absolute before:left-3 before:top-3 before:h-full before:w-[2px] before:bg-gradient-to-b before:from-indigo-200 before:to-transparent dark:before:from-indigo-800 last:before:h-0"
+                      >
+                        <div className="absolute left-0 top-1 h-6 w-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 shadow-lg shadow-indigo-500/50 flex items-center justify-center ring-4 ring-white dark:ring-gray-900">
+                          {item.type === "status-change" ? (
+                            <Clock className="h-3 w-3 text-white" />
+                          ) : (
+                            <MessageSquare className="h-3 w-3 text-white" />
+                          )}
                         </div>
-                      ) : (
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <Avatar className="h-6 w-6">
-                              {item?.user?.avatar ? (
-                                <AvatarImage
-                                  src={item.user.avatar}
-                                  alt={item.user.name || "User"}
-                                />
-                              ) : null}
-                              <AvatarFallback>
-                                {item?.user?.name
-                                  ? item.user.name.charAt(0)
-                                  : "U"}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="text-sm font-medium">
-                                {item?.user?.name ?? "User"}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {item.timestamp
-                                  ? formatDate(item.timestamp)
-                                  : ""}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="pl-8">
-                            <p className="text-sm text-gray-700 whitespace-pre-line">
-                              {item.content ?? item.message}
+
+                        {item.type === "status-change" ? (
+                          <div className="bg-indigo-50 dark:bg-indigo-950/50 p-4 rounded-xl border border-indigo-100 dark:border-indigo-900">
+                            <p className="text-sm text-foreground">
+                              Status changed to{" "}
+                              <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                                {item.status}
+                              </span>
+                              {item.user !== "system" && item?.user?.name && (
+                                <>
+                                  {" "}
+                                  by{" "}
+                                  <span className="font-medium">
+                                    {item.user.name}
+                                  </span>
+                                </>
+                              )}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {item.timestamp ? formatDate(item.timestamp) : ""}
                             </p>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                        ) : (
+                          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-800 transition-all">
+                            <div className="flex items-center gap-3 mb-3">
+                              <Avatar className="h-8 w-8 border-2 border-indigo-200 dark:border-indigo-800">
+                                {item?.user?.avatar ? (
+                                  <AvatarImage
+                                    src={item.user.avatar}
+                                    alt={item.user.name || "User"}
+                                  />
+                                ) : null}
+                                <AvatarFallback className="bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 font-semibold">
+                                  {item?.user?.name
+                                    ? item.user.name.charAt(0)
+                                    : "U"}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="text-sm font-semibold text-foreground">
+                                  {item?.user?.name ?? "User"}
+                                </p>
+                                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  {item.timestamp
+                                    ? formatDate(item.timestamp)
+                                    : ""}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="pl-0">
+                              {(() => {
+                                const message = item.content ?? item.message;
+                                // Check if this is a file attachment with base64 data
+                                const attachmentMatch = message?.match(
+                                  /📎 Attachment: (.+?) \[type=(.+?), size=(\d+)B\]\|\|\|(.+)/
+                                );
+
+                                // Also check for old format without base64
+                                const oldAttachmentMatch =
+                                  !attachmentMatch &&
+                                  message?.match(
+                                    /📎 Attachment: (.+?) \[type=(.+?), size=(\d+)B\]/
+                                  );
+
+                                if (attachmentMatch) {
+                                  const [
+                                    ,
+                                    filename,
+                                    fileType,
+                                    fileSize,
+                                    base64Data,
+                                  ] = attachmentMatch;
+                                  const fileSizeKB = (
+                                    parseInt(fileSize) / 1024
+                                  ).toFixed(1);
+                                  const isImage = fileType.startsWith("image/");
+                                  const isPDF = fileType === "application/pdf";
+
+                                  return (
+                                    <div className="space-y-2">
+                                      <div className="flex items-center gap-2 p-3 bg-indigo-50 dark:bg-indigo-950 border-2 border-indigo-200 dark:border-indigo-800 rounded-xl">
+                                        <Paperclip className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                                        <span className="text-sm text-indigo-800 dark:text-indigo-300 flex-1 font-medium">
+                                          {filename} ({fileSizeKB} KB)
+                                        </span>
+                                      </div>
+
+                                      {isImage && (
+                                        <div className="relative w-full border-2 border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-800">
+                                          <img
+                                            src={base64Data}
+                                            alt={filename}
+                                            className="w-full max-h-96 object-contain"
+                                          />
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="secondary"
+                                            className="absolute top-2 right-2"
+                                            onClick={() => {
+                                              window.open(base64Data, "_blank");
+                                            }}
+                                          >
+                                            Open in New Tab
+                                          </Button>
+                                        </div>
+                                      )}
+
+                                      {isPDF && (
+                                        <div className="p-4 border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900">
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                              <FileText className="h-12 w-12 text-red-600" />
+                                              <div>
+                                                <p className="text-sm font-medium text-foreground">
+                                                  PDF Document
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                  {filename}
+                                                </p>
+                                              </div>
+                                            </div>
+                                            <Button
+                                              type="button"
+                                              size="sm"
+                                              onClick={() => {
+                                                window.open(
+                                                  base64Data,
+                                                  "_blank"
+                                                );
+                                              }}
+                                            >
+                                              Open PDF
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                }
+
+                                // Handle old format attachments (without base64)
+                                if (oldAttachmentMatch) {
+                                  const [, filename, fileType, fileSize] =
+                                    oldAttachmentMatch;
+                                  const fileSizeKB = (
+                                    parseInt(fileSize) / 1024
+                                  ).toFixed(1);
+                                  const isImage = fileType.startsWith("image/");
+                                  const isPDF = fileType === "application/pdf";
+
+                                  return (
+                                    <div className="space-y-2">
+                                      <div className="flex items-center gap-2 p-3 bg-indigo-50 dark:bg-indigo-950 border-2 border-indigo-200 dark:border-indigo-800 rounded-xl">
+                                        <Paperclip className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                                        <span className="text-sm text-indigo-800 dark:text-indigo-300 flex-1 font-medium">
+                                          {filename} ({fileSizeKB} KB)
+                                        </span>
+                                      </div>
+
+                                      {isPDF && (
+                                        <div className="p-4 border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900">
+                                          <div className="flex items-center gap-3">
+                                            <FileText className="h-10 w-10 text-red-600" />
+                                            <div className="flex-1">
+                                              <p className="text-sm font-medium text-foreground">
+                                                PDF Document
+                                              </p>
+                                              <p className="text-xs text-muted-foreground">
+                                                {filename}
+                                              </p>
+                                            </div>
+                                          </div>
+                                          <p className="text-xs text-muted-foreground mt-2 italic">
+                                            Note: File preview not available for
+                                            attachments sent before the update.
+                                          </p>
+                                        </div>
+                                      )}
+
+                                      {isImage && (
+                                        <div className="p-2 border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900">
+                                          <div className="flex items-center gap-3 p-2">
+                                            <ImageIcon className="h-10 w-10 text-indigo-600" />
+                                            <div className="flex-1">
+                                              <p className="text-sm font-medium text-foreground">
+                                                Image File
+                                              </p>
+                                              <p className="text-xs text-muted-foreground">
+                                                {filename}
+                                              </p>
+                                            </div>
+                                          </div>
+                                          <p className="text-xs text-muted-foreground mt-2 italic px-2">
+                                            Note: Image preview not available
+                                            for attachments sent before the
+                                            update.
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                }
+
+                                // Regular text message
+                                return (
+                                  <p className="text-sm text-foreground whitespace-pre-line leading-relaxed">
+                                    {message}
+                                  </p>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
                 </TabsContent>
 
-                <TabsContent value="respond" className="mt-4 space-y-4">
-                  <Textarea
-                    placeholder="Type your message here..."
-                    className="min-h-[120px]"
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                  />
-                  <div className="flex justify-between">
+                <TabsContent value="respond" className="mt-0 space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">
+                      Your Message
+                    </label>
+                    <Textarea
+                      placeholder="Type your message here... Ask questions or provide additional information."
+                      className="min-h-[140px] resize-none border-2 focus:border-indigo-300 dark:focus:border-indigo-700"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                    />
+                  </div>
+
+                  {/* File Upload Section */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">
+                      Attachment (Optional)
+                    </label>
                     <input
                       id="student-attach-input"
                       type="file"
+                      accept="image/jpeg,image/jpg,image/png,application/pdf"
                       className="hidden"
-                      onChange={async (e) => {
-                        const f = e.target?.files?.[0];
-                        if (!f) return;
-                        if (!token) return;
-                        try {
-                          const meta = [];
-                          if (f.type) meta.push(`type=${f.type}`);
-                          if (f.size) meta.push(`size=${f.size}B`);
-                          const suffix = meta.length
-                            ? ` [${meta.join(", ")}]`
-                            : "";
-                          const entry = await api(
-                            `/complaints/${complaintId}/timeline`,
-                            {
-                              method: "POST",
-                              body: JSON.stringify({
-                                message: `Attachment noted: ${f.name}${suffix}`,
-                              }),
-                            },
-                            token
-                          );
-                          setTimeline((prev) => [...prev, entry]);
-                          toast.success("Attachment noted");
-                        } catch (err2) {
-                          toast.error(
-                            err2?.message || "Failed to note attachment"
-                          );
-                        }
-                      }}
+                      onChange={handleFileChange}
                     />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        document.getElementById("student-attach-input")?.click()
-                      }
-                    >
-                      <Paperclip className="h-4 w-4 mr-2" />
-                      Attach File
-                    </Button>
+
+                    {!selectedFile ? (
+                      <div
+                        onClick={() =>
+                          document
+                            .getElementById("student-attach-input")
+                            ?.click()
+                        }
+                        className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 text-center cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-600 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/50 transition-all"
+                      >
+                        <Paperclip className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                        <p className="text-sm text-muted-foreground">
+                          Click to attach a file
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          JPG, PNG, or PDF - max 5MB
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950 border-2 border-green-200 dark:border-green-800 rounded-xl">
+                          <Paperclip className="h-4 w-4 text-green-600 dark:text-green-400" />
+                          <span className="text-sm text-green-800 dark:text-green-300 flex-1 font-medium">
+                            {selectedFile.name} (
+                            {(selectedFile.size / 1024).toFixed(1)} KB)
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedFile(null);
+                              const input = document.getElementById(
+                                "student-attach-input"
+                              );
+                              if (input) input.value = "";
+                            }}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                          >
+                            ×
+                          </Button>
+                        </div>
+
+                        {selectedFile.type.startsWith("image/") && (
+                          <div className="relative w-full h-48 border-2 border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-800">
+                            <img
+                              src={URL.createObjectURL(selectedFile)}
+                              alt="Preview"
+                              className="w-full h-full object-contain"
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              className="absolute top-2 right-2"
+                              onClick={() => {
+                                const url = URL.createObjectURL(selectedFile);
+                                window.open(url, "_blank");
+                              }}
+                            >
+                              Open in New Tab
+                            </Button>
+                          </div>
+                        )}
+
+                        {selectedFile.type === "application/pdf" && (
+                          <div className="p-4 border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <FileText className="h-12 w-12 text-red-600" />
+                                <div>
+                                  <p className="text-sm font-medium text-foreground">
+                                    PDF Document
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {selectedFile.name}
+                                  </p>
+                                </div>
+                              </div>
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => {
+                                  const url = URL.createObjectURL(selectedFile);
+                                  window.open(url, "_blank");
+                                }}
+                              >
+                                Open PDF
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex justify-end">
                     <Button
                       onClick={handleSendMessage}
-                      disabled={!newMessage.trim()}
+                      disabled={!newMessage.trim() && !selectedFile}
+                      className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Send className="h-4 w-4 mr-2" />
                       Send Message
@@ -513,12 +900,12 @@ export default function StudentComplaintDetail({ params }) {
                 onOpenChange={setFeedbackDialogOpen}
               >
                 <DialogTrigger asChild>
-                  <Button className="w-full sm:w-auto">
+                  <Button className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg">
                     <ThumbsUp className="h-4 w-4 mr-2" />
                     Provide Feedback
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-[500px]">
+                <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Satisfaction Feedback</DialogTitle>
                     <DialogDescription>
@@ -526,53 +913,69 @@ export default function StudentComplaintDetail({ params }) {
                       complaint.
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="py-4 space-y-4">
+                  <div className="py-6 space-y-6">
                     <div className="flex justify-center gap-6">
                       <button
-                        className={`flex flex-col items-center gap-2 p-4 rounded-lg border ${
+                        className={`group flex flex-col items-center gap-3 p-6 rounded-2xl border-2 transition-all ${
                           satisfaction === true
-                            ? "border-green-500 bg-green-50"
-                            : "border-gray-200 hover:border-gray-300"
+                            ? "border-green-500 bg-green-50 dark:bg-green-950 shadow-lg shadow-green-500/20"
+                            : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/50 dark:hover:bg-green-950/50"
                         }`}
                         onClick={() => setSatisfaction(true)}
                       >
-                        <ThumbsUp
-                          className={`h-8 w-8 ${
+                        <div
+                          className={`h-16 w-16 rounded-full flex items-center justify-center transition-all ${
                             satisfaction === true
-                              ? "text-green-500"
-                              : "text-gray-400"
+                              ? "bg-green-500 shadow-lg shadow-green-500/50"
+                              : "bg-gray-100 dark:bg-gray-800 group-hover:bg-green-100 dark:group-hover:bg-green-900"
                           }`}
-                        />
+                        >
+                          <ThumbsUp
+                            className={`h-8 w-8 transition-all ${
+                              satisfaction === true
+                                ? "text-white"
+                                : "text-gray-400 group-hover:text-green-600"
+                            }`}
+                          />
+                        </div>
                         <span
-                          className={`text-sm font-medium ${
+                          className={`text-base font-semibold ${
                             satisfaction === true
-                              ? "text-green-700"
-                              : "text-gray-600"
+                              ? "text-green-700 dark:text-green-300"
+                              : "text-gray-600 dark:text-gray-400"
                           }`}
                         >
                           Satisfied
                         </span>
                       </button>
                       <button
-                        className={`flex flex-col items-center gap-2 p-4 rounded-lg border ${
+                        className={`group flex flex-col items-center gap-3 p-6 rounded-2xl border-2 transition-all ${
                           satisfaction === false
-                            ? "border-red-500 bg-red-50"
-                            : "border-gray-200 hover:border-gray-300"
+                            ? "border-red-500 bg-red-50 dark:bg-red-950 shadow-lg shadow-red-500/20"
+                            : "border-gray-200 dark:border-gray-700 hover:border-red-300 dark:hover:border-red-700 hover:bg-red-50/50 dark:hover:bg-red-950/50"
                         }`}
                         onClick={() => setSatisfaction(false)}
                       >
-                        <ThumbsDown
-                          className={`h-8 w-8 ${
+                        <div
+                          className={`h-16 w-16 rounded-full flex items-center justify-center transition-all ${
                             satisfaction === false
-                              ? "text-red-500"
-                              : "text-gray-400"
+                              ? "bg-red-500 shadow-lg shadow-red-500/50"
+                              : "bg-gray-100 dark:bg-gray-800 group-hover:bg-red-100 dark:group-hover:bg-red-900"
                           }`}
-                        />
+                        >
+                          <ThumbsDown
+                            className={`h-8 w-8 transition-all ${
+                              satisfaction === false
+                                ? "text-white"
+                                : "text-gray-400 group-hover:text-red-600"
+                            }`}
+                          />
+                        </div>
                         <span
-                          className={`text-sm font-medium ${
+                          className={`text-base font-semibold ${
                             satisfaction === false
-                              ? "text-red-700"
-                              : "text-gray-600"
+                              ? "text-red-700 dark:text-red-300"
+                              : "text-gray-600 dark:text-gray-400"
                           }`}
                         >
                           Unsatisfied
@@ -580,8 +983,11 @@ export default function StudentComplaintDetail({ params }) {
                       </button>
                     </div>
                     <div className="space-y-2">
-                      <label htmlFor="feedback" className="text-sm font-medium">
-                        Additional Comments
+                      <label
+                        htmlFor="feedback"
+                        className="text-sm font-semibold text-foreground"
+                      >
+                        Additional Comments (Optional)
                       </label>
                       <Textarea
                         id="feedback"
@@ -589,105 +995,29 @@ export default function StudentComplaintDetail({ params }) {
                         value={feedbackComment}
                         onChange={(e) => setFeedbackComment(e.target.value)}
                         rows={4}
+                        className="resize-none border-2 focus:border-indigo-300 dark:focus:border-indigo-700"
                       />
                     </div>
                   </div>
-                  <DialogFooter>
+                  <DialogFooter className="gap-2">
                     <Button
                       variant="outline"
                       onClick={() => setFeedbackDialogOpen(false)}
+                      className="border-2"
                     >
                       Cancel
                     </Button>
                     <Button
                       onClick={handleSubmitFeedback}
                       disabled={satisfaction === null}
+                      className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg disabled:opacity-50"
                     >
                       Submit Feedback
                     </Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-            ) : (
-              <>
-                <Button
-                  variant="outline"
-                  className="w-full sm:w-auto"
-                  onClick={async () => {
-                    if (!token) return;
-                    // Try multiple DELETE endpoints to fully remove the complaint
-                    const endpoints = [
-                      `/student/complaints/${complaintId}`,
-                      `/complaints/${complaintId}`,
-                      `/admin/complaints/${complaintId}`,
-                    ];
-                    let deleted = false;
-                    for (const path of endpoints) {
-                      try {
-                        await api(path, { method: "DELETE" }, token);
-                        deleted = true;
-                        break;
-                      } catch (_) {
-                        // try next
-                      }
-                    }
-                    if (deleted) {
-                      toast.success("Complaint cancelled and removed");
-                      router.push("/student/dashboard");
-                    } else {
-                      toast.error(
-                        "Failed to delete complaint. Please try again later."
-                      );
-                    }
-                  }}
-                >
-                  <XCircle className="h-4 w-4 mr-2" />
-                  Cancel Complaint
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full sm:w-auto"
-                  onClick={async () => {
-                    if (!token) return;
-                    try {
-                      // Attempt to set priority to high via admin endpoint if available
-                      await api(
-                        `/admin/complaints/${complaintId}/priority`,
-                        {
-                          method: "PUT",
-                          body: JSON.stringify({ priority: "high" }),
-                        },
-                        token
-                      );
-                    } catch (_) {
-                      // ignore failures; backend may not expose this endpoint
-                    }
-                    try {
-                      const entry = await api(
-                        `/complaints/${complaintId}/timeline`,
-                        {
-                          method: "POST",
-                          body: JSON.stringify({
-                            message:
-                              "Student requested urgent review (set priority: high)",
-                          }),
-                        },
-                        token
-                      );
-                      setTimeline((prev) => [...prev, entry]);
-                      toast.success("Urgent review requested");
-                    } catch (e) {
-                      toast.error(
-                        e?.message || "Failed to request urgent review"
-                      );
-                    }
-                  }}
-                >
-                  <AlertCircle className="h-4 w-4 mr-2" />
-                  Request Urgent Review
-                </Button>
-              </>
-            )}
+            ) : null}
           </div>
         </div>
       </div>

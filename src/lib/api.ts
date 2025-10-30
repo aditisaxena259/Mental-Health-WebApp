@@ -46,10 +46,20 @@ export async function api<T>(
   token?: string
 ): Promise<T> {
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
     ...(opts.headers as Record<string, string>),
   };
   if (token) headers.Authorization = `Bearer ${token}`;
+
+  // If body is FormData, do NOT set Content-Type (browser sets boundary)
+  // Otherwise, default to JSON unless content-type was explicitly provided
+  const isFormData =
+    typeof FormData !== "undefined" && opts.body instanceof FormData;
+  if (!isFormData) {
+    const hasContentType = Object.keys(headers).some(
+      (k) => k.toLowerCase() === "content-type"
+    );
+    if (!hasContentType) headers["Content-Type"] = "application/json";
+  }
 
   const method = (opts.method || "GET").toString().toUpperCase();
   const url = `${API_BASE}${path}`;

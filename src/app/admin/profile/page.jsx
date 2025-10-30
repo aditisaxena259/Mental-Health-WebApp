@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Suspense, useMemo } from "react";
+import { Suspense, useMemo, useState, useEffect } from "react";
 import RequireAuth from "@/components/guard/RequireAuth";
 import { api } from "@/lib/api";
 import { clearAuth, getToken } from "@/lib/auth";
@@ -19,19 +19,33 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { User, LogOut, ArrowLeft } from "lucide-react";
 
-const ADMIN_INFO = {
-  name: "Dr. Sunita Walia",
-  roleTitle: "Head Warden",
-  email: "warden@university.edu",
-  avatar: "/avatars/warden.svg",
-};
-
 function AdminProfileInner() {
   const router = useRouter();
   const token = useMemo(
     () => (typeof window !== "undefined" ? getToken() : null),
     []
   );
+  const [adminInfo, setAdminInfo] = useState({
+    name: "Admin",
+    roleTitle: "Warden",
+    email: "",
+    avatar: "/avatars/warden.svg",
+  });
+
+  // TODO: API - Fetch admin profile from backend
+  useEffect(() => {
+    if (!token) return;
+    // api("/profile", { method: "GET" }, token)
+    //   .then((data) => {
+    //     setAdminInfo({
+    //       name: data.name || "Admin",
+    //       roleTitle: data.role_title || data.roleTitle || "Warden",
+    //       email: data.email || "",
+    //       avatar: data.avatar || "/avatars/warden.svg",
+    //     });
+    //   })
+    //   .catch(() => {});
+  }, [token]);
 
   const logout = async () => {
     try {
@@ -46,44 +60,65 @@ function AdminProfileInner() {
 
   return (
     <RequireAuth roles={["admin"]}>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-950 dark:via-gray-900 dark:to-indigo-950">
         <div className="max-w-4xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between mb-6">
-            <Link
-              href="/complaint_dashboard"
-              className="text-gray-600 hover:text-indigo-700 flex items-center"
+            <Button
+              variant="ghost"
+              onClick={() => router.back()}
+              className="pl-0 hover:bg-gradient-to-r hover:from-indigo-100 hover:to-purple-100 dark:hover:from-indigo-900 dark:hover:to-purple-900 transition-all rounded-xl"
             >
-              <ArrowLeft className="h-4 w-4 mr-1" /> Back to Dashboard
-            </Link>
-            <Button variant="outline" onClick={logout}>
+              <ArrowLeft className="h-4 w-4 mr-1" /> Back
+            </Button>
+            <Button
+              variant="outline"
+              onClick={logout}
+              className="rounded-xl border-2 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 dark:hover:from-red-950 dark:hover:to-pink-950 transition-all"
+            >
               <LogOut className="h-4 w-4 mr-2" /> Logout
             </Button>
           </div>
 
-          <Card className="mb-6">
+          <Card className="rounded-2xl border-2 backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 shadow-xl shadow-indigo-500/10 mb-6">
             <CardHeader className="flex flex-row items-center gap-4">
-              <Avatar className="h-16 w-16">
-                <AvatarImage src={ADMIN_INFO.avatar} alt={ADMIN_INFO.name} />
-                <AvatarFallback>{ADMIN_INFO.name.charAt(0)}</AvatarFallback>
-              </Avatar>
+              <div className="bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 p-1 rounded-2xl shadow-md">
+                <Avatar className="h-16 w-16">
+                  <AvatarImage src={adminInfo.avatar} alt={adminInfo.name} />
+                  <AvatarFallback className="bg-gradient-to-br from-indigo-600 to-purple-600 text-white">
+                    {adminInfo.name.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
               <div>
-                <CardTitle className="text-2xl">{ADMIN_INFO.name}</CardTitle>
-                <CardDescription>{ADMIN_INFO.roleTitle}</CardDescription>
+                <CardTitle className="text-2xl bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                  {adminInfo.name}
+                </CardTitle>
+                <CardDescription>{adminInfo.roleTitle}</CardDescription>
                 <div className="mt-2 flex gap-2">
-                  <Badge variant="outline">Admin</Badge>
-                  <Badge variant="outline">{ADMIN_INFO.email}</Badge>
+                  <Badge variant="outline" className="rounded-lg border-2">
+                    Admin
+                  </Badge>
+                  <Badge variant="outline" className="rounded-lg border-2">
+                    {adminInfo.email}
+                  </Badge>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-600">Responsibilities</p>
-                  <p className="font-medium">Complaints Management</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                    Responsibilities
+                  </p>
+                  <p className="font-semibold text-foreground">
+                    Complaints Management
+                  </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Access</p>
-                  <p className="font-medium">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                    Access
+                  </p>
+                  <p className="font-semibold text-foreground">
                     Admin Dashboard & Apologies Review
                   </p>
                 </div>
@@ -92,35 +127,46 @@ function AdminProfileInner() {
           </Card>
 
           <div className="grid md:grid-cols-2 gap-6">
-            <Card>
+            <Card className="rounded-2xl border-2 backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 shadow-xl shadow-indigo-500/10 hover:shadow-2xl hover:shadow-indigo-500/20 transition-all">
               <CardHeader>
-                <CardTitle>Account</CardTitle>
+                <CardTitle className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                  Account
+                </CardTitle>
                 <CardDescription>Manage your session</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-gray-700">
-                    <User className="h-4 w-4" />
+                  <div className="flex items-center gap-2 text-foreground">
+                    <div className="bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 p-2 rounded-lg">
+                      <User className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                    </div>
                     <span>Logged in as Admin</span>
                   </div>
-                  <Button variant="outline" onClick={logout}>
+                  <Button
+                    variant="outline"
+                    onClick={logout}
+                    className="rounded-xl border-2 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 dark:hover:from-red-950 dark:hover:to-pink-950 transition-all"
+                  >
                     <LogOut className="h-4 w-4 mr-2" /> Logout
                   </Button>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="rounded-2xl border-2 backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 shadow-xl shadow-indigo-500/10 hover:shadow-2xl hover:shadow-indigo-500/20 transition-all">
               <CardHeader>
-                <CardTitle>Quick Links</CardTitle>
+                <CardTitle className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                  Quick Links
+                </CardTitle>
                 <CardDescription>Navigate across admin tools</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-2">
-                <Button asChild variant="outline" className="justify-start">
-                  <Link href="/complaint_dashboard">Complaints Dashboard</Link>
-                </Button>
-                <Button asChild variant="outline" className="justify-start">
-                  <Link href="/apologies_dashboard">Apologies Dashboard</Link>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="justify-start rounded-xl border-2 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-indigo-950 dark:hover:to-purple-950 transition-all"
+                >
+                  <Link href="/admin/dashboard">Admin Dashboard</Link>
                 </Button>
               </CardContent>
             </Card>

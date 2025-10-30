@@ -7,6 +7,7 @@ import RequireAuth from "@/components/guard/RequireAuth";
 import { api } from "@/lib/api";
 import { clearAuth, getToken } from "@/lib/auth";
 import { toast } from "sonner";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
   Card,
   CardHeader,
@@ -21,40 +22,44 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { User, LogOut, ArrowLeft } from "lucide-react";
 
-const STUDENT_INFO = {
-  name: "Aisha Khan",
-  id: "23BCE2139",
-  room: "203",
-  block: "A Block",
-  floor: "2nd Floor",
-  course: "B.Tech, Computer Science",
-  year: "3rd Year",
-  avatar: "/avatars/student.svg",
-};
-
 function StudentProfileInner() {
   const router = useRouter();
   const token = useMemo(
     () => (typeof window !== "undefined" ? getToken() : null),
     []
   );
-  const [studentId, setStudentId] = useState("");
+  const [studentInfo, setStudentInfo] = useState({
+    name: "Student",
+    id: "",
+    room: "",
+    block: "",
+    floor: "",
+    course: "",
+    year: "",
+    avatar: "/avatars/student.svg",
+  });
+  const [loadingProfile, setLoadingProfile] = useState(false);
 
+  // Fetch student profile from /student/profile
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("student_id");
-      if (saved) setStudentId(saved);
-    }
-  }, []);
-
-  const saveStudentId = () => {
-    if (!studentId) {
-      toast.error("Please enter your Student ID (UUID)");
-      return;
-    }
-    localStorage.setItem("student_id", studentId);
-    toast.success("Student ID saved");
-  };
+    if (!token) return;
+    setLoadingProfile(true);
+    api("/student/profile", { method: "GET" }, token)
+      .then((data) => {
+        setStudentInfo({
+          name: data.name || "Student",
+          id: data.studentIdentifier || data.id || "",
+          room: data.roomNo || data.room_no || data.room || "",
+          block: data.block || data.hostel || "",
+          floor: data.floor || "",
+          course: data.course || "",
+          year: data.year || "",
+          avatar: data.avatar || "/avatars/student.svg",
+        });
+      })
+      .catch(() => {})
+      .finally(() => setLoadingProfile(false));
+  }, [token]);
 
   const logout = async () => {
     try {
@@ -67,101 +72,90 @@ function StudentProfileInner() {
     }
   };
 
+  if (loadingProfile) {
+    return (
+      <RequireAuth roles={["student"]}>
+        <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-950 dark:via-gray-900 dark:to-indigo-950 flex items-center justify-center">
+          <LoadingSpinner size="lg" />
+        </div>
+      </RequireAuth>
+    );
+  }
+
   return (
     <RequireAuth roles={["student"]}>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-950 dark:via-gray-900 dark:to-indigo-950">
         <div className="max-w-4xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <Link
-                href="/student/dashboard"
-                className="text-gray-600 hover:text-indigo-700 flex items-center"
-              >
-                <ArrowLeft className="h-4 w-4 mr-1" /> Back
-              </Link>
-            </div>
+            <Button
+              variant="ghost"
+              onClick={() => router.back()}
+              className="pl-0"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" /> Back
+            </Button>
             <Button variant="outline" onClick={logout}>
               <LogOut className="h-4 w-4 mr-2" /> Logout
             </Button>
           </div>
 
-          <Card className="mb-6">
+          <Card className="rounded-2xl border-2 backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 shadow-xl mb-6">
             <CardHeader className="flex flex-row items-center gap-4">
               <Avatar className="h-16 w-16">
-                <AvatarImage
-                  src={STUDENT_INFO.avatar}
-                  alt={STUDENT_INFO.name}
-                />
-                <AvatarFallback>{STUDENT_INFO.name.charAt(0)}</AvatarFallback>
+                <AvatarImage src={studentInfo.avatar} alt={studentInfo.name} />
+                <AvatarFallback>{studentInfo.name.charAt(0)}</AvatarFallback>
               </Avatar>
               <div>
-                <CardTitle className="text-2xl">{STUDENT_INFO.name}</CardTitle>
-                <CardDescription>
-                  {STUDENT_INFO.course} • {STUDENT_INFO.year}
-                </CardDescription>
+                <CardTitle className="text-2xl">{studentInfo.name}</CardTitle>
+                <CardDescription>{studentInfo.course}</CardDescription>
                 <div className="mt-2 flex gap-2">
-                  <Badge variant="outline">ID: {STUDENT_INFO.id}</Badge>
-                  <Badge variant="outline">Room: {STUDENT_INFO.room}</Badge>
-                  <Badge variant="outline">{STUDENT_INFO.block}</Badge>
+                  <Badge variant="outline">Student</Badge>
+                  <Badge variant="outline">{studentInfo.year}</Badge>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-gray-600">Floor</Label>
-                  <p className="font-medium">{STUDENT_INFO.floor}</p>
+                  <p className="text-sm text-gray-600">Student ID</p>
+                  <p className="font-medium">{studentInfo.id}</p>
                 </div>
                 <div>
-                  <Label className="text-gray-600">Program</Label>
-                  <p className="font-medium">{STUDENT_INFO.course}</p>
+                  <p className="text-sm text-gray-600">Room</p>
+                  <p className="font-medium">
+                    {studentInfo.room}, {studentInfo.block}
+                  </p>
                 </div>
                 <div>
-                  <Label className="text-gray-600">Year</Label>
-                  <p className="font-medium">{STUDENT_INFO.year}</p>
+                  <p className="text-sm text-gray-600">Floor</p>
+                  <p className="font-medium">{studentInfo.floor}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Course</p>
+                  <p className="font-medium">{studentInfo.course}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Student ID (UUID)</CardTitle>
-                <CardDescription>
-                  Saved locally for submissions like apologies
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Enter your Student ID (UUID)"
-                    value={studentId}
-                    onChange={(e) => setStudentId(e.target.value)}
-                  />
-                  <Button onClick={saveStudentId}>Save</Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Account</CardTitle>
-                <CardDescription>Manage your session</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-gray-700">
-                    <User className="h-4 w-4" />
-                    <span>Logged in as Student</span>
-                  </div>
-                  <Button variant="outline" onClick={logout}>
-                    <LogOut className="h-4 w-4 mr-2" /> Logout
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <Card className="rounded-2xl border-2 backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 shadow-xl">
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+              <CardDescription>Manage your hostel experience</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              <Link href="/student/complaints">
+                <Button variant="outline" className="w-full justify-start">
+                  View My Complaints
+                </Button>
+              </Link>
+              <Link href="/student/apologies">
+                <Button variant="outline" className="w-full justify-start">
+                  View My Apologies
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </RequireAuth>
@@ -170,7 +164,7 @@ function StudentProfileInner() {
 
 export default function StudentProfilePage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<div>Loading...</div>}>
       <StudentProfileInner />
     </Suspense>
   );

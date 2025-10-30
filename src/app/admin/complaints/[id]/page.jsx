@@ -15,6 +15,7 @@ import {
   Calendar,
   MapPin,
   Tag,
+  Trash2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ import { api } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { toast } from "sonner";
 import RequireAuth from "@/components/guard/RequireAuth";
+import { PriorityBadge } from "@/components/shared/StatusBadges";
 
 export default function ComplaintDetailPage({ params }) {
   const router = useRouter();
@@ -220,6 +222,30 @@ export default function ComplaintDetailPage({ params }) {
     if (typeof window !== "undefined") window.print();
   };
 
+  const handleDeleteComplaint = async () => {
+    if (
+      !confirm(
+        "Are you sure you want to delete this complaint? This action cannot be undone."
+      )
+    ) {
+      return;
+    }
+
+    if (!token) return;
+
+    try {
+      await api(
+        `/admin/complaints/${complaintId}`,
+        { method: "DELETE" },
+        token
+      );
+      toast.success("Complaint deleted successfully");
+      router.push("/admin/complaints");
+    } catch (error) {
+      toast.error(error?.message || "Failed to delete complaint");
+    }
+  };
+
   const onAttachmentView = (att) => {
     if (att?.url) {
       window.open(att.url, "_blank");
@@ -325,13 +351,13 @@ export default function ComplaintDetailPage({ params }) {
 
   return (
     <RequireAuth roles={["admin"]}>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-background">
         <div className="max-w-6xl mx-auto px-4 py-6">
           {/* Back button and complaint title */}
           <div className="mb-6">
             <Button
               variant="ghost"
-              className="mb-2 pl-0 hover:bg-transparent hover:text-indigo-700"
+              className="mb-2 pl-0 hover:bg-transparent "
               onClick={() => router.back()}
             >
               <ChevronLeft className="h-4 w-4 mr-1" />
@@ -339,7 +365,7 @@ export default function ComplaintDetailPage({ params }) {
             </Button>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">
+                <h1 className="text-2xl font-bold text-foreground">
                   {complaint?.title || "Loading..."}
                 </h1>
                 <div className="flex flex-wrap items-center gap-2 mt-1 text-sm text-gray-600">
@@ -349,6 +375,16 @@ export default function ComplaintDetailPage({ params }) {
                     Reported on{" "}
                     {complaint?.date ? formatDate(complaint.date) : "..."}
                   </span>
+                  {uiPriority || complaint?.priority ? (
+                    <>
+                      <span>•</span>
+                      <span className="inline-flex items-center">
+                        <PriorityBadge
+                          priority={uiPriority || complaint?.priority}
+                        />
+                      </span>
+                    </>
+                  ) : null}
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -374,7 +410,7 @@ export default function ComplaintDetailPage({ params }) {
                   {complaint?.attachments &&
                     complaint.attachments.length > 0 && (
                       <div>
-                        <h3 className="text-sm font-medium text-gray-900 mb-2">
+                        <h3 className="text-sm font-medium text-foreground mb-2">
                           Attachments
                         </h3>
                         <div className="space-y-2">
@@ -385,7 +421,7 @@ export default function ComplaintDetailPage({ params }) {
                             >
                               <Paperclip className="h-4 w-4 text-gray-500" />
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 truncate">
+                                <p className="text-sm font-medium text-foreground truncate">
                                   {attachment.name}
                                 </p>
                                 <p className="text-xs text-gray-500">
@@ -670,6 +706,14 @@ export default function ComplaintDetailPage({ params }) {
                       onClick={handlePrint}
                     >
                       Print Complaint
+                    </Button>
+                    <Button
+                      className="w-full"
+                      variant="destructive"
+                      onClick={handleDeleteComplaint}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Complaint
                     </Button>
                   </div>
                 </CardContent>

@@ -20,12 +20,15 @@ export default function RequireAuth({ roles, children }: Props) {
     const token = getToken();
     const role = getRole();
     if (!token || !role) {
-      const roleHint = roles && roles.length === 1 ? `?role=${roles[0]}` : "";
+      const roleHint =
+        roles && roles.length === 1
+          ? `?role=${roles[0] === "admin" ? "warden" : roles[0]}`
+          : "";
       router.replace(`/login${roleHint}`);
       return;
     }
     if (roles && roles.length > 0 && role && !roles.includes(role as Role)) {
-      const roleHint = `?role=${role}`;
+      const roleHint = `?role=${role === "admin" ? "warden" : role}`;
       router.replace(`/login${roleHint}`);
       return;
     }

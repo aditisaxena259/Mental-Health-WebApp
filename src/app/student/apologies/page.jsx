@@ -35,7 +35,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, CheckCircle, AlertCircle, Clock } from "lucide-react";
+import {
+  Plus,
+  CheckCircle,
+  AlertCircle,
+  Clock,
+  FileText,
+  Paperclip,
+} from "lucide-react";
 
 const APOLOGY_TYPES = [
   { id: "outing", name: "Outing" },
@@ -75,18 +82,11 @@ const STATUS_BADGE = (status) => {
 
 function StudentApologiesInner() {
   const router = useRouter();
-  const [studentId, setStudentId] = useState("");
   const [apologies, setApologies] = useState([]);
   const [loading, setLoading] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [form, setForm] = useState({ type: "", message: "", description: "" });
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("student_id");
-      if (saved) setStudentId(saved);
-    }
-  }, []);
+  const [selectedFile, setSelectedFile] = useState(null);
 
   const token = useMemo(
     () => (typeof window !== "undefined" ? getToken() : null),
@@ -95,15 +95,15 @@ function StudentApologiesInner() {
 
   const fetchApologies = async () => {
     if (!token) return;
-    if (!studentId) return;
     setLoading(true);
     try {
-      const data = await api(
-        `/student/apologies?student_id=${encodeURIComponent(studentId)}`,
-        { method: "GET" },
-        token
-      );
-      setApologies(Array.isArray(data) ? data : []);
+      const data = await api("/student/apologies", { method: "GET" }, token);
+      const list = Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data)
+        ? data
+        : [];
+      setApologies(list);
     } catch (e) {
       toast.error(e?.message || "Failed to fetch apologies");
     } finally {
@@ -114,32 +114,50 @@ function StudentApologiesInner() {
   useEffect(() => {
     fetchApologies();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId]);
+  }, [token]);
 
-  const saveStudentId = () => {
-    if (!studentId) {
-      toast.error("Please enter your Student ID (UUID)");
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setSelectedFile(null);
       return;
     }
-    localStorage.setItem("student_id", studentId);
-    toast.success("Student ID saved");
-    fetchApologies();
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast.error("File size must be less than 5MB");
+      e.target.value = "";
+      return;
+    }
+
+    // Validate file type - PDF or images
+    const allowedTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "application/pdf",
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Only JPG, PNG, and PDF files are allowed");
+      e.target.value = "";
+      return;
+    }
+
+    setSelectedFile(file);
   };
 
   const submitApology = async (e) => {
     e.preventDefault();
     if (!token) return;
-    if (!studentId) {
-      toast.error("Student ID required");
-      return;
-    }
+
     try {
+      // TODO: API - Backend should auto-associate with authenticated user
       await api(
         "/student/apologies",
         {
           method: "POST",
           body: JSON.stringify({
-            student_id: studentId,
             type: form.type,
             message: form.message,
             description: form.description || undefined,
@@ -147,9 +165,16 @@ function StudentApologiesInner() {
         },
         token
       );
+
+      if (selectedFile) {
+        console.log("TODO: Upload apology file to backend:", selectedFile.name);
+        // TODO: Implement file upload endpoint when available
+      }
+
       toast.success("Apology letter submitted successfully");
       setNewOpen(false);
       setForm({ type: "", message: "", description: "" });
+      setSelectedFile(null);
       fetchApologies();
     } catch (e) {
       toast.error(e?.message || "Failed to submit apology");
@@ -158,11 +183,13 @@ function StudentApologiesInner() {
 
   return (
     <RequireAuth roles={["student"]}>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-950 dark:via-gray-900 dark:to-indigo-950">
         <div className="max-w-5xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">My Apologies</h1>
+              <h1 className="text-2xl font-bold text-foreground">
+                My Apologies
+              </h1>
               <p className="text-gray-600">
                 Submit and track your apology letters
               </p>
@@ -170,11 +197,11 @@ function StudentApologiesInner() {
             <div className="flex gap-2">
               <Dialog open={newOpen} onOpenChange={setNewOpen}>
                 <DialogTrigger asChild>
-                  <Button>
+                  <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg">
                     <Plus className="h-4 w-4 mr-2" /> Submit Apology
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-[525px] bg-white">
+                <DialogContent className="sm:max-w-[525px] max-h-[90vh] overflow-y-auto">
                   <form onSubmit={submitApology}>
                     <DialogHeader>
                       <DialogTitle>Submit a New Apology</DialogTitle>
@@ -183,19 +210,6 @@ function StudentApologiesInner() {
                       </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="student_id">Student ID (UUID)</Label>
-                        <Input
-                          id="student_id"
-                          placeholder="e.g., 123e4567-e89b-12d3-a456-426614174000"
-                          value={studentId}
-                          onChange={(e) => setStudentId(e.target.value)}
-                          required
-                        />
-                        <p className="text-xs text-gray-500">
-                          Saved locally for future submissions.
-                        </p>
-                      </div>
                       <div className="space-y-2">
                         <Label htmlFor="type">Type</Label>
                         <Select
@@ -244,6 +258,96 @@ function StudentApologiesInner() {
                           }
                         />
                       </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="attachment">
+                          Attachment (Optional)
+                        </Label>
+                        <Input
+                          id="attachment"
+                          type="file"
+                          accept="image/jpeg,image/jpg,image/png,application/pdf"
+                          onChange={handleFileChange}
+                          aria-label="Upload apology document"
+                        />
+                        {selectedFile && (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-md">
+                              <Paperclip className="h-4 w-4 text-green-600" />
+                              <span className="text-sm text-green-800 flex-1">
+                                {selectedFile.name} (
+                                {(selectedFile.size / 1024).toFixed(1)} KB)
+                              </span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedFile(null);
+                                  const input =
+                                    document.getElementById("attachment");
+                                  if (input) input.value = "";
+                                }}
+                                aria-label="Remove file"
+                              >
+                                ×
+                              </Button>
+                            </div>
+                            {selectedFile.type.startsWith("image/") && (
+                              <div className="relative w-full h-48 border rounded-md overflow-hidden bg-gray-50">
+                                <img
+                                  src={URL.createObjectURL(selectedFile)}
+                                  alt="Preview"
+                                  className="w-full h-full object-contain"
+                                />
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="secondary"
+                                  className="absolute top-2 right-2"
+                                  onClick={() => {
+                                    const url =
+                                      URL.createObjectURL(selectedFile);
+                                    window.open(url, "_blank");
+                                  }}
+                                >
+                                  Open in New Tab
+                                </Button>
+                              </div>
+                            )}
+                            {selectedFile.type === "application/pdf" && (
+                              <div className="p-4 border rounded-md bg-gray-50">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <FileText className="h-12 w-12 text-red-600" />
+                                    <div>
+                                      <p className="text-sm font-medium text-gray-700">
+                                        PDF Document
+                                      </p>
+                                      <p className="text-xs text-gray-500">
+                                        {selectedFile.name}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    onClick={() => {
+                                      const url =
+                                        URL.createObjectURL(selectedFile);
+                                      window.open(url, "_blank");
+                                    }}
+                                  >
+                                    Open PDF
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <p className="text-xs text-gray-500">
+                          JPG, PNG, or PDF - max 5MB
+                        </p>
+                      </div>
                     </div>
                     <DialogFooter>
                       <Button
@@ -253,7 +357,12 @@ function StudentApologiesInner() {
                       >
                         Cancel
                       </Button>
-                      <Button type="submit">Submit</Button>
+                      <Button
+                        type="submit"
+                        className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg"
+                      >
+                        Submit
+                      </Button>
                     </DialogFooter>
                   </form>
                 </DialogContent>
@@ -261,50 +370,35 @@ function StudentApologiesInner() {
             </div>
           </div>
 
-          <Card className="mb-6">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Student ID</CardTitle>
-              <CardDescription>
-                Required to fetch and submit apologies
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex gap-2">
-              <Input
-                placeholder="Enter your Student ID (UUID)"
-                value={studentId}
-                onChange={(e) => setStudentId(e.target.value)}
-              />
-              <Button variant="outline" onClick={saveStudentId}>
-                Save
-              </Button>
-              <Button onClick={fetchApologies} disabled={!studentId}>
-                Refresh
-              </Button>
-            </CardContent>
-          </Card>
-
           {loading ? (
-            <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-              Loading...
-            </div>
+            <Card className="rounded-2xl border-2 backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 shadow-xl p-8 text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading apologies...</p>
+            </Card>
           ) : apologies.length === 0 ? (
-            <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
+            <Card className="rounded-2xl border-2 backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 shadow-xl p-8 text-center">
               <AlertCircle className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-1">
+              <h3 className="text-lg font-medium text-foreground mb-1">
                 No apologies found
               </h3>
               <p className="text-gray-600 mb-4">
-                {studentId
-                  ? "You haven't submitted any apologies yet"
-                  : "Enter your Student ID to view apologies"}
+                You haven't submitted any apology letters yet
               </p>
-            </div>
+              <Button
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg"
+                onClick={() => setNewOpen(true)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Submit Apology
+              </Button>
+            </Card>
           ) : (
             <div className="space-y-4">
               {apologies.map((ap) => (
-                <div
+                <Card
                   key={ap.id}
-                  className="bg-white rounded-lg border border-gray-200 overflow-hidden transition-shadow hover:shadow-md"
+                  className="rounded-2xl border-2 backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 shadow-xl overflow-hidden transition-shadow hover:shadow-2xl cursor-pointer"
+                  onClick={() => router.push(`/student/apologies/${ap.id}`)}
                 >
                   <div className="p-4 md:p-6">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
@@ -313,7 +407,7 @@ function StudentApologiesInner() {
                           {ap.type?.[0] ?? "A"}
                         </div>
                         <div>
-                          <h3 className="font-medium text-gray-900 capitalize">
+                          <h3 className="font-medium text-foreground capitalize">
                             {ap.type}
                           </h3>
                           <p className="text-xs text-gray-500">
@@ -325,7 +419,7 @@ function StudentApologiesInner() {
                       </div>
                       <div>{STATUS_BADGE(ap.status)}</div>
                     </div>
-                    <p className="text-sm text-gray-700 mb-1 font-medium">
+                    <p className="text-sm text-foreground mb-1 font-medium">
                       {ap.message}
                     </p>
                     {ap.description ? (
@@ -337,7 +431,7 @@ function StudentApologiesInner() {
                       </p>
                     ) : null}
                   </div>
-                </div>
+                </Card>
               ))}
             </div>
           )}
