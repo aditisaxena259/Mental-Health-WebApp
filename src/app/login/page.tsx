@@ -1,6 +1,8 @@
 // app/login/page-enhanced.tsx
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";

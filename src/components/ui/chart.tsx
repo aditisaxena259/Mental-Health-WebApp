@@ -56,14 +56,6 @@ export function DonutChart({ data, className, size = 200 }: DonutChartProps) {
   const total = data.reduce((sum, item) => sum + item.value, 0);
   let cumulativePercent = 0;
 
-  const colors = [
-    "text-blue-500",
-    "text-green-500",
-    "text-amber-500",
-    "text-red-500",
-    "text-purple-500",
-  ];
-
   return (
     <div className={cn("flex items-center gap-6", className)}>
       <div className="relative" style={{ width: size, height: size }}>

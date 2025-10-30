@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Bell, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,11 +10,10 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { api } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { formatRelativeTime } from "@/lib/formatters";
 import { toast } from "sonner";
-import type { Notification, NotificationResponse } from "@/types/notification";
+import type { Notification } from "@/types/notification";
 
 interface NotificationBellProps {
   role: "student" | "admin";
@@ -24,31 +23,33 @@ export function NotificationBell({ role }: NotificationBellProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const token = getToken();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchNotifications = async (showToast = false) => {
-    if (!token) return;
+  const fetchNotifications = useCallback(
+    async (showToast = false) => {
+      if (!token) return;
 
-    try {
-      // TODO: API - Implement /api/notifications endpoint
-      // const data = await api<NotificationResponse>(
-      //   "/notifications",
-      //   { method: "GET" },
-      //   token
-      // );
-      // setNotifications(data.data);
-      // setUnreadCount(data.unreadCount);
+      try {
+        // TODO: API - Implement /api/notifications endpoint
+        // const data = await api<NotificationResponse>(
+        //   "/notifications",
+        //   { method: "GET" },
+        //   token
+        // );
+        // setNotifications(data.data);
+        // setUnreadCount(data.unreadCount);
 
-      // Placeholder: Show that notifications are ready
-      if (showToast) {
-        toast.info("Notifications will be available when backend is ready");
+        // Placeholder: Show that notifications are ready
+        if (showToast) {
+          toast.info("Notifications will be available when backend is ready");
+        }
+      } catch {
+        // Silent fail - notifications not yet implemented
       }
-    } catch (error) {
-      console.error("Failed to fetch notifications:", error);
-    }
-  };
+    },
+    [token]
+  );
 
   const markAsRead = async (notificationId: string) => {
     if (!token) return;
@@ -65,7 +66,7 @@ export function NotificationBell({ role }: NotificationBellProps) {
         prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n))
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
-    } catch (error) {
+    } catch {
       toast.error("Failed to mark notification as read");
     }
   };
@@ -80,7 +81,7 @@ export function NotificationBell({ role }: NotificationBellProps) {
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
       setUnreadCount(0);
       toast.success("All notifications marked as read");
-    } catch (error) {
+    } catch {
       toast.error("Failed to mark all as read");
     }
   };
@@ -101,7 +102,7 @@ export function NotificationBell({ role }: NotificationBellProps) {
         setUnreadCount((prev) => Math.max(0, prev - 1));
       }
       toast.success("Notification deleted");
-    } catch (error) {
+    } catch {
       toast.error("Failed to delete notification");
     }
   };
@@ -147,7 +148,7 @@ export function NotificationBell({ role }: NotificationBellProps) {
         clearInterval(intervalRef.current);
       }
     };
-  }, [token]);
+  }, [fetchNotifications]);
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -189,7 +190,9 @@ export function NotificationBell({ role }: NotificationBellProps) {
             <div className="p-8 text-center text-gray-500">
               <Bell className="h-12 w-12 mx-auto mb-2 opacity-20" />
               <p className="text-sm">No notifications yet</p>
-              <p className="text-xs mt-1">You'll be notified of updates here</p>
+              <p className="text-xs mt-1">
+                You&apos;ll be notified of updates here
+              </p>
             </div>
           ) : (
             <div className="divide-y">
@@ -270,4 +273,3 @@ export function NotificationBell({ role }: NotificationBellProps) {
     </Popover>
   );
 }
-

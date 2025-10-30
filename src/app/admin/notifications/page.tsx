@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import RequireAuth from "@/components/guard/RequireAuth";
-import { api } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { formatRelativeTime, formatDateTime } from "@/lib/formatters";
 import { toast } from "sonner";
@@ -13,7 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Bell, Check, CheckCheck, Trash2 } from "lucide-react";
-import type { Notification, NotificationResponse } from "@/types/notification";
+import type { Notification } from "@/types/notification";
+
+export const dynamic = "force-dynamic";
 
 function AdminNotificationsInner() {
   const router = useRouter();
@@ -22,7 +23,7 @@ function AdminNotificationsInner() {
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     if (!token) return;
 
     setIsLoading(true);
@@ -30,12 +31,12 @@ function AdminNotificationsInner() {
       // TODO: API - Implement GET /api/notifications
       setNotifications([]);
       toast.info("Notifications will load when backend is ready");
-    } catch (error) {
+    } catch {
       toast.error("Failed to load notifications");
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [token]);
 
   const markAsRead = async (notificationId: string) => {
     if (!token) return;
@@ -44,7 +45,7 @@ function AdminNotificationsInner() {
       setNotifications((prev) =>
         prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n))
       );
-    } catch (error) {
+    } catch {
       toast.error("Failed to mark as read");
     }
   };
@@ -55,7 +56,7 @@ function AdminNotificationsInner() {
     try {
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
       toast.success("All notifications marked as read");
-    } catch (error) {
+    } catch {
       toast.error("Failed to mark all as read");
     }
   };
@@ -66,7 +67,7 @@ function AdminNotificationsInner() {
     try {
       setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
       toast.success("Notification deleted");
-    } catch (error) {
+    } catch {
       toast.error("Failed to delete notification");
     }
   };
@@ -77,14 +78,14 @@ function AdminNotificationsInner() {
     try {
       setNotifications((prev) => prev.filter((n) => !n.isRead));
       toast.success("Read notifications cleared");
-    } catch (error) {
+    } catch {
       toast.error("Failed to clear notifications");
     }
   };
 
   useEffect(() => {
     fetchNotifications();
-  }, [token]);
+  }, [fetchNotifications]);
 
   const filteredNotifications =
     filter === "all" ? notifications : notifications.filter((n) => !n.isRead);

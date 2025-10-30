@@ -111,9 +111,9 @@ export function normalizeStatus(
     "rejected",
     "reviewed",
     "submitted",
-  ];
-  if (validStatuses.includes(normalized)) {
-    return normalized as any;
+  ] as const;
+  if (validStatuses.includes(normalized as (typeof validStatuses)[number])) {
+    return normalized as (typeof validStatuses)[number];
   }
 
   return "open"; // fallback

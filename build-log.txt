@@ -1,0 +1,27 @@
+
+> hostel-admin@0.1.0 build E:\Mental-Health-WebApp
+> next build
+
+   Γû▓ Next.js 15.2.4
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ Γ£ô Compiled successfully
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/21) ...
+Error occurred prerendering page "/forgot-password". Read more: https://nextjs.org/docs/messages/prerender-error
+Error: Invalid revalidate value "function(){throw Error("Attempted to call revalidate() from the server but revalidate is on the client. It's not possible to invoke a client function from the server, it can only be rendered as a Component or passed to props of a Client Component.")}" on "/forgot-password", must be a non-negative number or false
+    at E:\Mental-Health-WebApp\node_modules\.pnpm\next@15.2.4_react-dom@19.1.1_react@19.1.1__react@19.1.1\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:129:8710
+    at t8 (E:\Mental-Health-WebApp\node_modules\.pnpm\next@15.2.4_react-dom@19.1.1_react@19.1.1__react@19.1.1\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:129:8956)
+    at async E:\Mental-Health-WebApp\node_modules\.pnpm\next@15.2.4_react-dom@19.1.1_react@19.1.1__react@19.1.1\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:129:10198
+    at async Promise.all (index 0)
+    at async t8 (E:\Mental-Health-WebApp\node_modules\.pnpm\next@15.2.4_react-dom@19.1.1_react@19.1.1__react@19.1.1\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:129:10067)
+    at async E:\Mental-Health-WebApp\node_modules\.pnpm\next@15.2.4_react-dom@19.1.1_react@19.1.1__react@19.1.1\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:129:10198
+    at async Promise.all (index 0)
+    at async t8 (E:\Mental-Health-WebApp\node_modules\.pnpm\next@15.2.4_react-dom@19.1.1_react@19.1.1__react@19.1.1\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:129:10067)
+    at async rJ (E:\Mental-Health-WebApp\node_modules\.pnpm\next@15.2.4_react-dom@19.1.1_react@19.1.1__react@19.1.1\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:133:6282)
+    at async r3 (E:\Mental-Health-WebApp\node_modules\.pnpm\next@15.2.4_react-dom@19.1.1_react@19.1.1__react@19.1.1\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:134:15414)
+Export encountered an error on /forgot-password/page: /forgot-password, exiting the build.
+ Γ¿» Next.js build worker exited with code: 1 and signal: null
+ΓÇëELIFECYCLEΓÇë Command failed with exit code 1.

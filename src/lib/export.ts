@@ -12,11 +12,11 @@ export interface ExportData {
  */
 export function exportToCSV(data: ExportData): void;
 export function exportToCSV(
-  rows: Array<Record<string, any>>,
+  rows: Array<Record<string, string | number | boolean | null>>,
   filename?: string
 ): void;
 export function exportToCSV(
-  arg1: ExportData | Array<Record<string, any>>,
+  arg1: ExportData | Array<Record<string, string | number | boolean | null>>,
   arg2?: string
 ) {
   // If called with ExportData shape
@@ -34,7 +34,9 @@ export function exportToCSV(
   }
 
   // If called with array of objects and optional filename
-  const objects = arg1 as Array<Record<string, any>>;
+  const objects = arg1 as Array<
+    Record<string, string | number | boolean | null>
+  >;
   const filename = arg2 || "export.csv";
   const headersSet = new Set<string>();
   objects.forEach((obj) =>
@@ -47,7 +49,6 @@ export function exportToCSV(
       if (val == null) return "";
       if (typeof val === "number") return val;
       if (typeof val === "boolean") return val ? "true" : "false";
-      if (val instanceof Date) return val.toISOString();
       return String(val);
     })
   );
@@ -72,7 +73,10 @@ function buildCSVContent(
 /**
  * Export data to JSON format
  */
-export function exportToJSON(data: any, filename = "export.json") {
+export function exportToJSON(
+  data: Record<string, unknown> | Array<Record<string, unknown>>,
+  filename = "export.json"
+) {
   const jsonContent = JSON.stringify(data, null, 2);
   const blob = new Blob([jsonContent], { type: "application/json" });
   downloadBlob(blob, filename);
@@ -84,7 +88,7 @@ export function exportToJSON(data: any, filename = "export.json") {
  * npm install jspdf jspdf-autotable
  */
 export function exportToPDF(data: ExportData) {
-  const { title = "Export", headers, rows, filename = "export.pdf" } = data;
+  const { title = "Export", headers, rows } = data;
 
   // Simple PDF generation using browser print
   const printWindow = window.open("", "_blank");

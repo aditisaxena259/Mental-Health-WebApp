@@ -6,12 +6,14 @@ import { useLocalStorage } from "./useLocalStorage";
 import { toast } from "sonner";
 
 interface DraftData {
-  data: any;
+  data: Record<string, string | number | boolean | null>;
   timestamp: number;
   formId: string;
 }
 
-export function useFormDraft<T extends Record<string, any>>(
+export function useFormDraft<
+  T extends Record<string, string | number | boolean | null>
+>(
   formId: string,
   initialData: T,
   options: {
@@ -37,22 +39,16 @@ export function useFormDraft<T extends Record<string, any>>(
 
       if (hoursSinceSave < 24) {
         // Only load drafts less than 24 hours old
-        setFormData(draft.data);
+        setFormData(draft.data as T);
         setLastSaved(new Date(draft.timestamp));
         if (showToasts) {
           toast.info("Draft restored", {
             description: `Last saved ${formatTimestamp(draft.timestamp)}`,
-            action: {
-              label: "Discard",
-              onClick: () => clearDraft(),
-            },
           });
         }
-      } else {
-        // Clear old drafts
-        clearDraft();
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftKey]);
 
   // Auto-save with debounce
@@ -64,6 +60,7 @@ export function useFormDraft<T extends Record<string, any>>(
     }, autoSaveDelay);
 
     return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData, isDirty, autoSaveDelay]);
 
   const saveDraft = useCallback(() => {

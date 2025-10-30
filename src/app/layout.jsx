@@ -12,6 +12,10 @@ export const metadata = {
     "A comprehensive portal for managing hostel complaints and maintenance requests",
 };
 
+export const dynamic = "force-dynamic";
+export const dynamicParams = true;
+export const revalidate = 0;
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
@@ -29,4 +33,3 @@ export default function RootLayout({ children }) {
     </html>
   );
 }
-

@@ -26,15 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import {
-  Filter,
-  X,
-  Save,
-  Star,
-  Calendar,
-  Search,
-  RotateCcw,
-} from "lucide-react";
+import { Filter, X, Save, Star, Search, RotateCcw } from "lucide-react";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -42,13 +34,15 @@ import { cn } from "@/lib/utils";
 export interface FilterConfig {
   id: string;
   name: string;
-  filters: Record<string, any>;
+  filters: Record<string, string | number | boolean | null>;
   isDefault?: boolean;
 }
 
 interface AdvancedFilterProps {
-  onFilterChange: (filters: Record<string, any>) => void;
-  currentFilters?: Record<string, any>;
+  onFilterChange: (
+    filters: Record<string, string | number | boolean | null>
+  ) => void;
+  currentFilters?: Record<string, string | number | boolean | null>;
   filterOptions?: {
     status?: { value: string; label: string }[];
     category?: { value: string; label: string }[];
@@ -208,7 +202,7 @@ export function AdvancedFilter({
               <div className="space-y-2">
                 <Label htmlFor="status-filter">Status</Label>
                 <Select
-                  value={(localFilters || {}).status || "all"}
+                  value={String((localFilters || {}).status || "all")}
                   onValueChange={(value) =>
                     setLocalFilters({ ...(localFilters || {}), status: value })
                   }
@@ -233,7 +227,7 @@ export function AdvancedFilter({
               <div className="space-y-2">
                 <Label htmlFor="category-filter">Category</Label>
                 <Select
-                  value={(localFilters || {}).category || "all"}
+                  value={String((localFilters || {}).category || "all")}
                   onValueChange={(value) =>
                     setLocalFilters({
                       ...(localFilters || {}),
@@ -261,7 +255,7 @@ export function AdvancedFilter({
               <div className="space-y-2">
                 <Label htmlFor="priority-filter">Priority</Label>
                 <Select
-                  value={(localFilters || {}).priority || "all"}
+                  value={String((localFilters || {}).priority || "all")}
                   onValueChange={(value) =>
                     setLocalFilters({
                       ...(localFilters || {}),
@@ -296,7 +290,7 @@ export function AdvancedFilter({
                     <Input
                       id="date-from"
                       type="date"
-                      value={(localFilters || {}).dateFrom || ""}
+                      value={String((localFilters || {}).dateFrom || "")}
                       onChange={(e) =>
                         setLocalFilters({
                           ...(localFilters || {}),
@@ -313,7 +307,7 @@ export function AdvancedFilter({
                     <Input
                       id="date-to"
                       type="date"
-                      value={(localFilters || {}).dateTo || ""}
+                      value={String((localFilters || {}).dateTo || "")}
                       onChange={(e) =>
                         setLocalFilters({
                           ...(localFilters || {}),
@@ -390,7 +384,7 @@ export function AdvancedFilter({
               <p className="font-medium mb-2">Current filters:</p>
               <ul className="space-y-1">
                 {Object.entries(localFilters)
-                  .filter(([_, value]) => value && value !== "all")
+                  .filter(([, value]) => value && value !== "all")
                   .map(([key, value]) => (
                     <li key={key} className="flex items-center gap-2">
                       <Badge variant="secondary" className="text-xs">

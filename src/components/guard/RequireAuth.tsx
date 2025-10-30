@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { getRole, getToken } from "@/lib/auth";
 
 type Role = "student" | "admin" | "counselor";
@@ -13,7 +13,6 @@ type Props = {
 
 export default function RequireAuth({ roles, children }: Props) {
   const router = useRouter();
-  const params = useSearchParams();
   const [allowed, setAllowed] = useState(false);
 
   useEffect(() => {
@@ -33,7 +32,7 @@ export default function RequireAuth({ roles, children }: Props) {
       return;
     }
     setAllowed(true);
-  }, [router, roles, params]);
+  }, [router, roles]);
 
   if (!allowed) return null;
   return <>{children}</>;
